@@ -1,0 +1,82 @@
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    depends_on:
+      - api_data
+      - api_model
+      - db
+      - mlflow
+    command: flask run --host=0.0.0.0 --port=5000
+    environment:
+      FLASK_APP: app.py
+      FLASK_ENV: development
+    volumes:
+      - C:/Users/Utilisateur/Documents/Prepa_Diplome/PCO_dec2/DB_pco/array_comp_esco.npy:/app/DB_pco/array_comp_esco.npy
+    networks:
+      - app_network
+
+  api_data:
+    build:
+      context: . #./api_data
+    ports:
+      - "8001:8001"
+    depends_on:
+      - db
+    command: ["uvicorn", "api_data:app", "--host", "0.0.0.0", "--port", "8001"]
+    networks:
+      - app_network
+
+  api_model:
+    build:
+      context: . #./api_model
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mlflow
+    command: ["uvicorn", "api_model:app", "--host", "0.0.0.0", "--port", "8000"]
+    volumes:
+      - "C:/Users/Utilisateur/Documents/Prepa_Diplome/PCO_dec/Algos/rfc_1.joblib:/app/rfc_1.joblib"
+      - "C:/Users/Utilisateur/Documents/Prepa_Diplome/PCO_dec/Algos/rfc_1.joblib:/app/rfc_2.joblib"
+      - ./Algos/st_javaness:/app/st_javaness #./st_javaness:/app/st_javaness
+    networks:
+      - app_network
+
+  db:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgre
+      POSTGRES_DB: db_pco
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - app_network
+
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.19.0
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5001
+    command: >
+      mlflow server
+      --backend-store-uri file:/app/mlruns
+      --default-artifact-root ./mlruns
+      --host 0.0.0.0
+      --port 5001
+    ports:
+      - "5001:5001"
+    volumes:
+    - ./mlruns:/app/mlruns
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge
+
+volumes:
+  db_data:
